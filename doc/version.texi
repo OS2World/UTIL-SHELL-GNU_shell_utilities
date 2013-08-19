@@ -1,0 +1,2 @@
+@set VERSION GNU sh-utils 1.12
+@set RELEASEDATE Sat 05 Nov 1994 08:31:34

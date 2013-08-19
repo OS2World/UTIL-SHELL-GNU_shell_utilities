@@ -1,0 +1,138 @@
+# Makefile for library files used by GNU shell utilities.
+# Copyright (C) 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+SHELL = /bin/sh
+
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+CC = @CC@
+AR = ar
+RANLIB = @RANLIB@
+DEFS = @DEFS@
+CFLAGS = @CFLAGS@
+YACC = @YACC@
+
+SOURCES = regex.c getdate.y posixtm.y strftime.c \
+alloca.c basename.c error.c full-write.c gethostname.c getline.c getopt.c \
+getopt1.c getugroups.c getusershell.c group-member.c long-options.c \
+memcmp.c mktime.c putenv.c stime.c strcspn.c stripslash.c strstr.c \
+strtod.c strtol.c strtoul.c xgetcwd.c xgethostname.c xmalloc.c xstrdup.c
+
+OBJECTS = regex.o getdate.o posixtm.o strftime.o \
+basename.o error.o full-write.o getline.o getopt.o getopt1.o getugroups.o \
+group-member.o long-options.o putenv.o safe-lstat.o safe-stat.o \
+stripslash.o xgetcwd.o xgethostname.o xmalloc.o xstrdup.o @LIBOBJS@ @ALLOCA@
+
+DISTFILES = Makefile.in getline.h getopt.h long-options.h regex.h pathmax.h \
+getdate.c posixtm.c group-member.h safe-xstat.cin safe-xstat.hin $(SOURCES)
+
+all: libshu.a
+
+.SUFFIXES:
+.SUFFIXES: .c .o
+
+.c.o:
+	$(CC) -c $(CPPFLAGS) $(DEFS) -I. -I.. -I$(srcdir) $(CFLAGS) $<
+
+subdir = lib
+Makefile: ../config.status Makefile.in
+	cd .. && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= ./config.status
+
+installdirs:
+
+install: all
+
+uninstall:
+
+TAGS: $(SOURCES)
+	etags $(SOURCES)
+
+check:
+
+clean:
+	rm -f *.a *.o
+
+mostlyclean: clean
+
+distclean: clean
+	rm -f Makefile *.tab.c tposixtm.c \
+	  safe-stat.c safe-stat.h safe-lstat.c safe-lstat.h
+
+realclean: distclean
+	rm -f TAGS getdate.c posixtm.c
+
+distdir = ../`cat ../distname`/$(subdir)
+dist: $(DISTFILES)
+	for file in $(DISTFILES); do \
+	  ln $$file $(distdir) \
+	    || { echo copying $$file instead; cp -p $$file $(distdir);}; \
+	done
+
+libshu.a: $(OBJECTS)
+	rm -f $@
+	$(AR) cr $@ $(OBJECTS)
+	-$(RANLIB) $@
+
+extract_stat = sed 's/@l@//g; s/@L@//g; /@LSTAT_ONLY@/d'
+extract_lstat = sed 's/@l@/l/g; s/@L@/L/g; s/	*@LSTAT_ONLY@//'
+
+safe-lstat.c: safe-xstat.cin
+	$(extract_lstat) $(srcdir)/safe-xstat.cin > $@-t
+	mv $@-t $@
+
+safe-lstat.h: safe-xstat.hin
+	$(extract_lstat) $(srcdir)/safe-xstat.hin > $@-t
+	mv $@-t $@
+
+safe-stat.c: safe-xstat.cin
+	$(extract_stat) $(srcdir)/safe-xstat.cin > $@-t
+	mv $@-t $@
+
+safe-stat.h: safe-xstat.hin
+	$(extract_stat) $(srcdir)/safe-xstat.hin > $@-t
+	mv $@-t $@
+
+safe-stat.o: safe-stat.h
+safe-lstat.o: safe-lstat.h safe-stat.h
+
+# Since this directory contains two parsers, we have to be careful to avoid
+# running two $(YACC)s during parallel makes.  See below.
+getdate.c: getdate.y
+	@echo expect 10 shift/reduce conflicts
+	$(YACC) $(srcdir)/getdate.y
+	mv y.tab.c getdate.c
+
+# Make the rename atomic, in case sed is interrupted and later rerun.
+# The artificial dependency on getdate.c keeps the two parsers from being
+# built in parallel.  Enforcing this little bit of sequentiality lets
+# everyone (even those without bison) still run mostly parallel builds.
+posixtm.c: posixtm.y getdate.c
+	$(YACC) $(srcdir)/posixtm.y
+	mv y.tab.c posixtm.tab.c
+	sed -e 's/yy/zz/g' posixtm.tab.c > tposixtm.c
+	mv tposixtm.c posixtm.c
+	rm -f posixtm.tab.c
+
+$(OBJECTS): ../config.h
+
+getopt1.o: getopt.h
+regex.o: regex.h
+
+# Tell versions [3.59,3.63) of GNU make not to export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

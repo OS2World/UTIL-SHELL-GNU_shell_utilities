@@ -1,0 +1,35 @@
+LIBRARY GNUSHU INITGLOBAL
+DESCRIPTION 'GNU shell utilities common library'
+DATA MULTIPLE NONSHARED
+
+EXPORTS
+  basename                   @1
+  error                      @2
+  set_program_name           @3
+  strip_trailing_slashes     @4
+  xmalloc                    @5
+  xrealloc                   @6
+  xstrdup                    @7
+  putenv                     @9
+  _getopt_internal           @10
+  getopt                     @11
+  optarg                     @12
+  opterr                     @13
+  optind                     @14
+  getopt_long                @15
+  getopt_long_only           @16
+  get_date                   @17
+  getdate_yyparse            @20
+  posixtime                  @21
+  posixtime_zzparse          @22
+  posixtm                    @23
+  uname                      @24
+  stime                      @25
+  gethostname                @26
+  strftime                   @27
+  full_write                 @28
+  xgethostname               @29
+  xgetcwd                    @30
+  getline                    @31
+  parse_long_options         @32
+  group_member               @33

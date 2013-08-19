@@ -1,0 +1,34 @@
+# Makefile for GNU shell utilities programs.
+# Do not use this makefile directly, but only from `../Makefile'.
+# Copyright (C) 1991 Free Software Foundation, Inc.
+
+PROGS = basename.exe date.exe dirname.exe echo.exe env.exe expr.exe \
+hostname.exe id.exe logname.exe pathchk.exe printenv.exe printf.exe \
+pwd.exe sleep.exe tee.exe test.exe tty.exe whoami.exe yes.exe nice.exe \
+uname.exe # su.exe stty.exe users.exe who.exe
+
+.SUFFIXES: .c $O .exe
+
+.c$O:
+	$(CC) $(CFLAGS) -c $<
+
+$O.exe:
+	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
+
+.PHONY: all
+all: $(PROGS)
+
+$(PROGS): version$O gnushutl.def
+
+env$O id$O nice$O pathchk$O stty$O tty$O uname$O: ../lib/getopt.h
+expr$O: ../lib/regex.h
+
+
+test$O:	test.c
+	$(CC) $(CFLAGS) -DTEST_STANDALONE -c test.c
+
+users$O: who.c
+	$(CC) $(CFLAGS) -DUSERS -c who.c
+
+clean:
+	rm -f *.o *.obj

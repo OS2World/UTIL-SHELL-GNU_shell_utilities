@@ -1,0 +1,37 @@
+# Master Makefile for the GNU shell programming utilities.
+# Copyright (C) 1991 Free Software Foundation, Inc.
+
+release:
+	$(MAKE) -f Makefile.os2 dll src \
+	CC="gcc -Zomf -O" O=".obj" A=".lib" \
+	LFLAGS="-s -Zcrtdll" DLFLAGS="-s -Zcrtdll -Zdll" \
+	AR="emxomfar" RANLIB="emxomfar s" LIBS="-lregex"
+debug:
+	$(MAKE) -f Makefile.os2 lib src \
+	CC="gcc -g" O=".o" A=".a" AR="ar" RANLIB="ar s"
+
+DEFS = -DHAVE_CONFIG_H
+
+CFLAGS = -I.. -I. -I../lib $(DEFS)
+LDFLAGS = -L../lib -lshu $(LFLAGS)
+
+MDEFINES = CC="$(CC)" AR="$(AR)" RANLIB="$(RANLIB)" O="$O" A="$A" \
+CFLAGS="$(CFLAGS)" LFLAGS="$(LFLAGS)" DLFLAGS="$(DLFLAGS)" \
+LDFLAGS="$(LDFLAGS)" LIBS="$(LIBS)"
+
+.PHONY: lib dll src
+
+lib: config.h
+	cd lib && $(MAKE) -f Makefile.os2 $(MDEFINES) lib
+dll: config.h
+	cd lib && $(MAKE) -f Makefile.os2 $(MDEFINES) dll
+src: config.h
+	cd src && $(MAKE) -f Makefile.os2 $(MDEFINES) all
+
+config.h: config.h.os2
+	copy config.h.os2 config.h
+
+clean:
+	rm -f config.h
+	cd lib && $(MAKE) -f Makefile.os2 clean
+	cd src && $(MAKE) -f Makefile.os2 clean

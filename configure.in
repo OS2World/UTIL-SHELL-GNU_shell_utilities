@@ -1,0 +1,179 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(src/stty.c)
+AC_PREREQ(1.120)
+AC_CONFIG_HEADER(config.h)
+AC_SUBST(PROGS)
+AC_SUBST(MAN)
+AC_PROG_MAKE_SET
+AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_GCC_TRADITIONAL
+AC_PROG_INSTALL
+AC_PROG_RANLIB
+AC_PROG_YACC
+AC_AIX
+AC_MINIX
+AC_ISC_POSIX
+AC_CHECK_FUNCS(uname, PROGS="$PROGS uname" MAN="$MAN uname.1")
+AC_C_CONST
+AC_HEADER_STDC
+AC_C_BIGENDIAN
+
+AC_STRUCT_TM
+AC_HEADER_TIME
+AC_STRUCT_TIMEZONE
+AC_HEADER_STAT
+AC_TYPE_UID_T
+AC_TYPE_GETGROUPS
+AC_TYPE_SIZE_T
+
+AC_CHECK_FUNCS(bcopy endgrent endpwent ftime getcwd getgroups gettimeofday \
+	       isascii memcpy sethostname strerror sysinfo)
+
+# SCO-ODT-3.0 is reported to need -los to link programs using initgroups
+AC_CHECK_FUNCS(initgroups)
+if test $ac_cv_func_initgroups = no; then
+  AC_CHECK_LIB(os, initgroups)
+fi
+
+AC_CHECK_FUNCS(syslog)
+if test $ac_cv_func_syslog = no; then
+  # syslog is not in the default libraries.  See if it's in some other.
+  for lib in bsd socket inet; do
+    AC_CHECK_LIB($lib, syslog, [AC_DEFINE(HAVE_SYSLOG)
+      LIBS="$LIBS -l$lib"; break])
+  done
+fi
+
+AC_CHECK_HEADERS(string.h fcntl.h limits.h syslog.h sys/time.h unistd.h \
+		 sys/timeb.h float.h sys/systeminfo.h sys/param.h)
+
+AC_REPLACE_FUNCS(gethostname getusershell mktime stime \
+		 strcspn strstr strtol strtoul strtod)
+AC_FUNC_MEMCMP
+AC_FUNC_VPRINTF
+AC_FUNC_ALLOCA
+
+AC_MSG_CHECKING(for 3-argument setpriority function)
+AC_CACHE_VAL(utils_cv_func_setpriority,
+[AC_TRY_LINK([#include <sys/time.h>
+#include <sys/resource.h>],
+[setpriority(0, 0, 0);],
+utils_cv_func_setpriority=yes, utils_cv_func_setpriority=no)])
+AC_MSG_RESULT($utils_cv_func_setpriority)
+if test $utils_cv_func_setpriority = yes; then
+  PROGS="$PROGS nice nohup"
+  MAN="$MAN nice.1 nohup.1"
+else
+  AC_MSG_CHECKING(for nice function)
+  AC_CACHE_VAL(utils_cv_func_nice,
+  [AC_TRY_LINK([], nice();, 
+  utils_cv_func_nice=yes, utils_cv_func_nice=no)])
+  AC_MSG_RESULT($utils_cv_func_nice)
+  if test $utils_cv_func_nice = yes; then
+    AC_DEFINE(NICE_PRIORITY)
+    PROGS="$PROGS nice nohup"
+    MAN="$MAN nice.1 nohup.1"
+  fi
+fi
+
+AC_MSG_CHECKING(ut_host in struct utmp)
+AC_CACHE_VAL(su_cv_func_ut_host_in_utmp,
+[AC_TRY_LINK([#include <sys/types.h>
+#include <utmp.h>], [struct utmp ut; ut.ut_host;],
+su_cv_func_ut_host_in_utmp=yes, su_cv_func_ut_host_in_utmp=no)])
+AC_MSG_RESULT($su_cv_func_ut_host_in_utmp)
+if test $su_cv_func_ut_host_in_utmp = yes; then
+  have_ut_host=1
+  AC_DEFINE(HAVE_UT_HOST)
+fi
+
+if test -z "$have_ut_host"; then
+  AC_MSG_CHECKING(ut_host in struct utmpx)
+  AC_CACHE_VAL(su_cv_func_ut_host_in_utmpx,
+  [AC_TRY_LINK([#include <sys/types.h>
+#include <utmpx.h>], [struct utmpx ut; ut.ut_host;],
+  su_cv_func_ut_host_in_utmpx=yes, su_cv_func_ut_host_in_utmpx=no)])
+  AC_MSG_RESULT($su_cv_func_ut_host_in_utmpx)
+  if test $su_cv_func_ut_host_in_utmpx = yes; then
+    AC_DEFINE(HAVE_UTMPX_H)
+    AC_DEFINE(HAVE_UT_HOST)
+  fi
+fi
+
+AC_MSG_CHECKING(POSIX termios)
+AC_CACHE_VAL(su_cv_sys_posix_termios,
+[AC_TRY_LINK([#include <sys/types.h>
+#include <unistd.h>
+#include <termios.h>],
+[/* SunOS 4.0.3 has termios.h but not the library calls.  */
+tcgetattr(0, 0);],
+  su_cv_sys_posix_termios=yes,
+  su_cv_sys_posix_termios=no)])
+AC_MSG_RESULT($su_cv_sys_posix_termios)
+
+if test $su_cv_sys_posix_termios = yes; then
+  PROGS="$PROGS stty" MAN="$MAN stty.1"
+
+  AC_MSG_CHECKING(c_line in struct termios)
+  AC_CACHE_VAL(su_cv_sys_c_line_in_termios,
+  [AC_TRY_LINK([#include <sys/types.h>
+#include <termios.h>],
+	      [struct termios t; t.c_line;],
+	      su_cv_sys_c_line_in_termios=yes,
+	      su_cv_sys_c_line_in_termios=no)])
+  AC_MSG_RESULT($su_cv_sys_c_line_in_termios)
+  test $su_cv_sys_c_line_in_termios = yes && AC_DEFINE(HAVE_C_LINE)
+
+  AC_MSG_CHECKING(TIOCGWINSZ in termios.h)
+  AC_CACHE_VAL(su_cv_sys_tiocgwinsz_in_termios_h,
+  [AC_TRY_LINK([#include <sys/types.h>
+#include <termios.h>],
+	    [int x = TIOCGWINSZ;],
+	    su_cv_sys_tiocgwinsz_in_termios_h=yes,
+	    su_cv_sys_tiocgwinsz_in_termios_h=no)])
+  AC_MSG_RESULT($su_cv_sys_tiocgwinsz_in_termios_h)
+else
+  su_cv_sys_tiocgwinsz_in_termios_h=no
+fi
+
+if test $su_cv_sys_tiocgwinsz_in_termios_h = no; then
+  AC_MSG_CHECKING(TIOCGWINSZ in sys/ioctl.h)
+  AC_CACHE_VAL(su_cv_sys_tiocgwinsz_in_sys_ioctl_h,
+  [AC_TRY_LINK([#include <sys/types.h>
+#include <sys/ioctl.h>],
+	      [int x = TIOCGWINSZ;],
+	      su_cv_sys_tiocgwinsz_in_sys_ioctl_h=yes,
+	      su_cv_sys_tiocgwinsz_in_sys_ioctl_h=no)])
+  AC_MSG_RESULT($su_cv_sys_tiocgwinsz_in_sys_ioctl_h)
+
+  test $su_cv_sys_tiocgwinsz_in_sys_ioctl_h = yes \
+      && AC_DEFINE(GWINSZ_IN_SYS_IOCTL)
+fi
+
+AC_CHECK_HEADER([sys/ptem.h],
+		AC_DEFINE(WINSIZE_IN_PTEM))
+
+# The -lsun library is required for YP support on Irix-4.0.5 systems.
+AC_CHECK_LIB(sun, yp_match)
+
+AC_CHECKING(for shadow password routines)
+# Needed on SysV for shadow passwords.
+AC_CHECK_LIB(sec, main)
+
+# Needed on Linux for shadow passwords.
+AC_CHECK_LIB(shadow, main)
+
+AC_EGREP_HEADER(sp_pwdp, shadow.h,
+		AC_CHECK_FUNC(getspnam, AC_DEFINE(HAVE_SHADOW_H)))
+
+AC_CHECK_FUNCS(crypt)
+if test $ac_cv_func_crypt = no; then
+  # SCO-ODT-3.0 is reported to need this library for crypt.  
+  AC_CHECK_LIB(ufc, crypt, LIBS="$LIBS -lufc",
+    [# NetBSD needs this library for crypt.  
+    AC_CHECK_LIB(crypt, crypt)])
+fi
+
+AC_OUTPUT(Makefile doc/Makefile lib/Makefile man/Makefile src/Makefile,
+[date > stamp-h])dnl

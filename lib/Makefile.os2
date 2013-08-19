@@ -1,0 +1,65 @@
+# Makefile for library files used by GNU shell utilities.
+# Do not use this makefile directly, but only from `../Makefile'.
+# Copyright (C) 1991 Free Software Foundation, Inc.
+
+OBJECTS = basename$O error$O stripslash$O xmalloc$O xstrdup$O \
+putenv$O getopt$O getopt1$O getdate$O posixtm$O utsname$O stime$O \
+gethostname$O xgethostname$O xgetcwd$O strftime$O full-write$O \
+long-options$O getline$O group-member$O
+REGEX = regex$O
+
+.SUFFIXES: .c $O
+
+.c$O:
+	$(CC) $(CFLAGS) -c $<
+
+.PHONY: lib dll
+lib: shu.a
+dll: shu.lib gnushu.dll regex.lib gnuregex.dll
+
+shu.a: $(OBJECTS) $(REGEX)
+	rm -f $@
+	$(AR) r $@ $(OBJECTS) $(REGEX)
+	$(RANLIB) $@
+
+shu.lib: gnushu.def
+	emximp -o $@ gnushu.def
+
+regex.lib: gnuregex.def
+	emximp -o $@ gnuregex.def
+
+gnushu.dll: gnushu.def $(OBJECTS)
+	$(CC) gnushu.def -o $@ $(OBJECTS) $(DLFLAGS)
+
+gnuregex.dll: gnuregex.def $(REGEX)
+	$(CC) gnuregex.def -o $@ $(REGEX) $(DLFLAGS)
+
+extract_stat = sed "s/@l@//g; s/@L@//g; /@LSTAT_ONLY@/d"
+extract_lstat = sed "s/@l@/l/g; s/@L@/L/g; s/	*@LSTAT_ONLY@//"
+stats: safe-lstat.c safe-lstat.h safe-stat.c safe-stat.h
+safe-lstat.c: safe-xstat.cin
+	$(extract_lstat) safe-xstat.cin > $@
+safe-lstat.h: safe-xstat.hin
+	$(extract_lstat) safe-xstat.hin > $@
+safe-stat.c: safe-xstat.cin
+	$(extract_stat) safe-xstat.cin > $@
+safe-stat.h: safe-xstat.hin
+	$(extract_stat) safe-xstat.hin > $@
+safe-stat$O: safe-stat.h
+safe-lstat$O: safe-lstat.h safe-stat.h
+
+getdate.c: getdate.y
+	@echo expect 8 shift/reduce conflicts
+	bison -o getdate.c getdate.y
+
+# Make the rename atomic, in case sed is interrupted and later rerun.
+posixtm.c: posixtm.y
+	bison -o posixtm.tab.c posixtm.y
+	sed -e "s/yy/zz/g" posixtm.tab.c > $@
+	rm -f posixtm.tab.c
+
+getopt1$O: getopt.h
+regex$O: regex.h
+
+clean:
+	rm -f *.o *.obj *.a *.lib *.imp

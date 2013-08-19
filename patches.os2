@@ -1,0 +1,1386 @@
+Only in new: README.OS2
+Only in new: patches.os2
+Only in new: config.h.os2
+Only in new: Makefile.os2
+Only in new/src: Makefile.os2
+Only in new/src: gnushutl.def
+Only in new/lib: Makefile.os2
+Only in new/lib: gnuregex.def
+Only in new/lib: gnushu.def
+Only in new/lib: utsname.c
+Only in new/lib: utsname.h
+diff -cbBwr orig/lib/basename.c new/lib/basename.c
+*** orig/lib/basename.c	Mon Sep 26 23:46:14 1994
+--- new/lib/basename.c	Sat Dec 17 00:09:10 1994
+***************
+*** 37,41 ****
+--- 37,45 ----
+    char *base;
+  
+    base = rindex (name, '/');
++ #ifdef OS2
++   if (!base)
++     base = rindex (name, ':');
++ #endif
+    return base ? base + 1 : name;
+  }
+diff -cbBwr orig/lib/error.c new/lib/error.c
+*** orig/lib/error.c	Thu Oct 13 00:41:00 1994
+--- new/lib/error.c	Sat Dec 17 00:09:12 1994
+***************
+*** 69,74 ****
+--- 69,85 ----
+  #define strerror private_strerror
+  #endif
+  
++ #ifdef __EMX__
++ 
++ char *program_name;
++ 
++ void set_program_name(char *name)
++ {
++   program_name = name;
++ }
++ 
++ #endif
++ 
+  /* Print the program name and error message MESSAGE, which is a printf-style
+     format string with optional args.
+     If ERRNUM is nonzero, print its corresponding system error message.
+diff -cbBwr orig/lib/gethostname.c new/lib/gethostname.c
+*** orig/lib/gethostname.c	Mon Sep 26 23:25:26 1994
+--- new/lib/gethostname.c	Sat Dec 17 00:09:12 1994
+***************
+*** 22,28 ****
+  #endif
+  
+  #ifdef HAVE_UNAME
+! #include <sys/utsname.h>
+  #endif
+  
+  /* Put up to LEN chars of the host name into NAME.
+--- 22,28 ----
+  #endif
+  
+  #ifdef HAVE_UNAME
+! #include <utsname.h>
+  #endif
+  
+  /* Put up to LEN chars of the host name into NAME.
+diff -cbBwr orig/lib/long-options.c new/lib/long-options.c
+*** orig/lib/long-options.c	Tue Sep 27 22:52:48 1994
+--- new/lib/long-options.c	Sat Dec 17 00:09:24 1994
+***************
+*** 54,63 ****
+    opterr = 0;
+  
+    if (argc == 2
+!       && (c = getopt_long (argc, argv, "+", long_options, (int *) 0)) != EOF)
+      {
+        switch (c)
+  	{
+  	case 'h':
+  	  (*usage) (0);
+  
+--- 54,64 ----
+    opterr = 0;
+  
+    if (argc == 2
+!       && (c = getopt_long (argc, argv, "+?", long_options, (int *) 0)) != EOF)
+      {
+        switch (c)
+  	{
++ 	case '?':
+  	case 'h':
+  	  (*usage) (0);
+  
+diff -cbBwr orig/lib/stime.c new/lib/stime.c
+*** orig/lib/stime.c	Tue Sep 27 22:54:18 1994
+--- new/lib/stime.c	Sat Dec 17 00:09:12 1994
+***************
+*** 26,31 ****
+--- 26,33 ----
+  
+  /* Set the system time to *WHEN seconds past the start of 1970 GMT. */
+  
++ #ifndef OS2
++ 
+  int
+  stime (when)
+       time_t *when;
+***************
+*** 36,38 ****
+--- 38,66 ----
+    tv.tv_usec = 0;
+    return settimeofday (&tv, (struct timezone *) 0);
+  }
++ 
++ #else
++ 
++ #include <os2.h>
++ 
++ int stime(time_t *newtime)
++ {
++   struct tm *newtm = localtime(newtime);
++   DATETIME dt;
++ 
++   dt.hours   = newtm -> tm_hour;
++   dt.minutes = newtm -> tm_min;
++   dt.seconds = newtm -> tm_sec;
++   dt.hundredths = 0;
++ 
++   dt.day     = newtm -> tm_mday;
++   dt.month   = newtm -> tm_mon + 1;
++   dt.year    = newtm -> tm_year + 1900;
++   dt.weekday = newtm -> tm_wday;
++ 
++   dt.timezone = -1;
++ 
++   return DosSetDateTime(&dt) ? -1 : 0;
++ }
++ 
++ #endif
+diff -cbBwr orig/lib/stripslash.c new/lib/stripslash.c
+*** orig/lib/stripslash.c	Mon Sep 26 23:42:18 1994
+--- new/lib/stripslash.c	Sat Dec 17 00:09:12 1994
+***************
+*** 37,42 ****
+--- 37,48 ----
+  {
+    int last;
+  
++ #ifdef OS2
++   for ( last = 0; path[last]; last++ )
++     if ( path[last] == '\\' )
++       path[last] = '/';
++ #endif
++ 
+    last = strlen (path) - 1;
+    while (last > 0 && path[last] == '/')
+      path[last--] = '\0';
+diff -cbBwr orig/lib/xgetcwd.c new/lib/xgetcwd.c
+*** orig/lib/xgetcwd.c	Tue Sep 27 15:02:46 1994
+--- new/lib/xgetcwd.c	Sat Dec 17 01:52:42 1994
+***************
+*** 33,39 ****
+--- 33,44 ----
+  char *getwd ();
+  #define getcwd(buf, max) getwd (buf)
+  #else
++ #ifdef __EMX__
++ #include <stdlib.h>
++ #define getcwd _getcwd2
++ #else
+  char *getcwd ();
++ #endif
+  #endif
+  
+  /* Amount to increase buffer size by in each try. */
+diff -cbBwr orig/src/basename.c new/src/basename.c
+*** orig/src/basename.c	Fri Oct 21 06:59:40 1994
+--- new/src/basename.c	Sat Dec 17 00:11:10 1994
+***************
+*** 51,56 ****
+--- 51,57 ----
+  	     program_name);
+    else
+      {
++       print_version("basename");
+        printf ("\
+  Usage: %s PATH [SUFFIX]\n\
+    or:  %s OPTION\n\
+***************
+*** 77,86 ****
+    parse_long_options (argc, argv, "basename", version_string, usage);
+  
+    if (argc == 1 || argc > 3)
+!     {
+!       error (0, 0, "too %s arguments", argc == 1 ? "few" : "many");
+!       usage (1);
+!     }
+  
+    strip_trailing_slashes (argv[1]);
+  
+--- 78,84 ----
+    parse_long_options (argc, argv, "basename", version_string, usage);
+  
+    if (argc == 1 || argc > 3)
+!     usage (0);
+  
+    strip_trailing_slashes (argv[1]);
+  
+diff -cbBwr orig/src/date.c new/src/date.c
+*** orig/src/date.c	Sat Oct 01 20:06:08 1994
+--- new/src/date.c	Sat Dec 17 00:12:12 1994
+***************
+*** 156,162 ****
+  
+    program_name = argv[0];
+  
+!   while ((optc = getopt_long (argc, argv, "d:f:s:u", long_options, (int *) 0))
+  	 != EOF)
+      switch (optc)
+        {
+--- 156,162 ----
+  
+    program_name = argv[0];
+  
+!   while ((optc = getopt_long (argc, argv, "d:f:s:u?", long_options, (int *) 0))
+  	 != EOF)
+      switch (optc)
+        {
+***************
+*** 177,183 ****
+  	universal_time = 1;
+  	break;
+        default:
+! 	usage (1);
+        }
+  
+    if (show_version)
+--- 177,183 ----
+  	universal_time = 1;
+  	break;
+        default:
+! 	usage (0);
+        }
+  
+    if (show_version)
+***************
+*** 325,330 ****
+--- 325,331 ----
+  	     program_name);
+    else
+      {
++       print_version("date");
+        printf ("\
+  Usage: %s [OPTION]... [+FORMAT]\n\
+    or:  %s [OPTION] [MMDDhhmm[[CC]YY][.ss]]\n\
+diff -cbBwr orig/src/dirname.c new/src/dirname.c
+*** orig/src/dirname.c	Fri Oct 21 06:59:42 1994
+--- new/src/dirname.c	Sat Dec 17 00:13:06 1994
+***************
+*** 40,45 ****
+--- 40,46 ----
+  	     program_name);
+    else
+      {
++       print_version("dirname");
+        printf ("\
+  Usage: %s PATH\n\
+    or:  %s OPTION\n\
+***************
+*** 67,81 ****
+    parse_long_options (argc, argv, "dirname", version_string, usage);
+  
+    if (argc != 2)
+!     {
+!       error (0, 0, "too %s arguments", argc < 2 ? "few" : "many");
+!       usage (1);
+!     }
+  
+    path = argv[1];
+    strip_trailing_slashes (path);
+  
+    slash = rindex (path, '/');
+    if (slash == NULL)
+      path = (char *) ".";
+    else
+--- 68,83 ----
+    parse_long_options (argc, argv, "dirname", version_string, usage);
+  
+    if (argc != 2)
+!     usage (0);
+  
+    path = argv[1];
+    strip_trailing_slashes (path);
+  
+    slash = rindex (path, '/');
++ #ifdef OS2
++   if (slash == NULL)
++     slash = rindex (path, ':');
++ #endif
+    if (slash == NULL)
+      path = (char *) ".";
+    else
+diff -cbBwr orig/src/echo.c new/src/echo.c
+*** orig/src/echo.c	Sat Oct 01 04:41:10 1994
+--- new/src/echo.c	Sat Dec 17 00:09:14 1994
+***************
+*** 72,77 ****
+--- 72,78 ----
+  	     program_name);
+    else
+      {
++       print_version("echo");
+        printf ("Usage: %s [OPTION]... [STRING]...\n", program_name);
+        printf ("\
+  \n\
+***************
+*** 118,123 ****
+--- 119,131 ----
+  #if defined (V9_ECHO) && defined (V9_DEFAULT)
+    do_v9 = 1;
+  #endif
++ 
++   if (argc == 1)
++     {
++       print_version("echo");
++       fprintf (stderr, "Usage: %s [-neE] string ...\n", argv[0]);
++       exit (1);
++     }
+  
+    --argc;
+    ++argv;
+diff -cbBwr orig/src/env.c new/src/env.c
+*** orig/src/env.c	Sat Oct 01 04:41:10 1994
+--- new/src/env.c	Sat Dec 17 00:09:14 1994
+***************
+*** 123,129 ****
+  
+    program_name = argv[0];
+  
+!   while ((optc = getopt_long (argc, argv, "+iu:", longopts, (int *) 0)) != EOF)
+      {
+        switch (optc)
+  	{
+--- 123,129 ----
+  
+    program_name = argv[0];
+  
+!   while ((optc = getopt_long (argc, argv, "+iu:?", longopts, (int *) 0)) != EOF)
+      {
+        switch (optc)
+  	{
+***************
+*** 135,141 ****
+  	case 'u':
+  	  break;
+  	default:
+! 	  usage (2);
+  	}
+      }
+  
+--- 135,141 ----
+  	case 'u':
+  	  break;
+  	default:
+! 	  usage (0);
+  	}
+      }
+  
+***************
+*** 151,162 ****
+    if (optind != argc && !strcmp (argv[optind], "-"))
+      ignore_environment = 1;
+    
+    environ = dummy_environ;
+    environ[0] = NULL;
+! 
+!   if (!ignore_environment)
+!     for (; *envp; envp++)
+!       putenv (*envp);
+  
+    optind = 0;			/* Force GNU getopt to re-initialize. */
+    while ((optc = getopt_long (argc, argv, "+iu:", longopts, (int *) 0)) != EOF)
+--- 151,160 ----
+    if (optind != argc && !strcmp (argv[optind], "-"))
+      ignore_environment = 1;
+    
++   if (ignore_environment) {
+    environ = dummy_environ;
+    environ[0] = NULL;
+!   }
+  
+    optind = 0;			/* Force GNU getopt to re-initialize. */
+    while ((optc = getopt_long (argc, argv, "+iu:", longopts, (int *) 0)) != EOF)
+***************
+*** 190,195 ****
+--- 188,194 ----
+  	     program_name);
+    else
+      {
++       print_version("env");
+        printf ("Usage: %s [OPTION]... [-] [NAME=VALUE]... [COMMAND [ARG]...]\n",
+  	      program_name);
+        printf ("\
+diff -cbBwr orig/src/expr.c new/src/expr.c
+*** orig/src/expr.c	Fri Oct 21 06:59:42 1994
+--- new/src/expr.c	Sat Dec 17 00:13:22 1994
+***************
+*** 97,102 ****
+--- 97,103 ----
+  	     program_name);
+    else
+      {
++       print_version("expr");
+        printf ("\
+  Usage: %s EXPRESSION\n\
+    or:  %s OPTION\n\
+***************
+*** 162,171 ****
+    parse_long_options (argc, argv, "expr", version_string, usage);
+  
+    if (argc == 1)
+!     {
+!       error (0, 0, "too few arguments");
+!       usage (1);
+!     }
+  
+    args = argv + 1;
+  
+--- 163,169 ----
+    parse_long_options (argc, argv, "expr", version_string, usage);
+  
+    if (argc == 1)
+!     usage (0);
+  
+    args = argv + 1;
+  
+diff -cbBwr orig/src/hostname.c new/src/hostname.c
+*** orig/src/hostname.c	Sat Oct 01 04:41:12 1994
+--- new/src/hostname.c	Sat Dec 17 00:09:16 1994
+***************
+*** 61,66 ****
+--- 61,67 ----
+  	     program_name);
+    else
+      {
++       print_version("hostname");
+        printf ("\
+  Usage: %s [NAME]\n\
+    or:  %s OPTION\n\
+diff -cbBwr orig/src/id.c new/src/id.c
+*** orig/src/id.c	Tue Oct 11 03:47:00 1994
+--- new/src/id.c	Sat Dec 17 00:09:16 1994
+***************
+*** 22,34 ****
+--- 22,37 ----
+  #include <stdio.h>
+  #include <getopt.h>
+  #include <sys/types.h>
++ #ifndef OS2
+  #include <pwd.h>
+  #include <grp.h>
++ #endif
+  #include <getopt.h>
+  
+  #include "version.h"
+  #include "system.h"
+  
++ #ifndef OS2
+  #ifdef _POSIX_VERSION
+  #include <limits.h>
+  #if !defined(NGROUPS_MAX) || NGROUPS_MAX < 1
+***************
+*** 48,56 ****
+--- 50,61 ----
+  #define NGROUPS_MAX NGROUPS
+  #endif /* not NGROUPS_MAX and NGROUPS */
+  #endif /* not _POSIX_VERSION */
++ #endif /* not OS2 */
+  
+  char *xmalloc ();
++ #ifndef OS2
+  int getugroups ();
++ #endif
+  void error ();
+  
+  static void print_user ();
+***************
+*** 111,117 ****
+  
+    program_name = argv[0];
+  
+!   while ((optc = getopt_long (argc, argv, "gnruG", longopts, (int *) 0))
+  	 != EOF)
+      {
+        switch (optc)
+--- 116,122 ----
+  
+    program_name = argv[0];
+  
+!   while ((optc = getopt_long (argc, argv, "gnruG?", longopts, (int *) 0))
+  	 != EOF)
+      {
+        switch (optc)
+***************
+*** 134,140 ****
+  	  just_group_list = 1;
+  	  break;
+  	default:
+! 	  usage (1);
+  	}
+      }
+  
+--- 139,145 ----
+  	  just_group_list = 1;
+  	  break;
+  	default:
+! 	  usage (0);
+  	}
+      }
+  
+***************
+*** 359,364 ****
+--- 364,370 ----
+  	     program_name);
+    else
+      {
++       print_version("id");
+        printf ("Usage: %s [OPTION]... [USERNAME]\n", program_name);
+        printf ("\
+  \n\
+diff -cbBwr orig/src/logname.c new/src/logname.c
+*** orig/src/logname.c	Sat Oct 01 04:41:14 1994
+--- new/src/logname.c	Sat Dec 17 00:09:16 1994
+***************
+*** 48,53 ****
+--- 48,54 ----
+  	     program_name);
+    else
+      {
++       print_version("logname");
+        printf ("Usage: %s [OPTION]...\n", program_name);
+        printf ("\
+  \n\
+***************
+*** 68,74 ****
+  
+    program_name = argv[0];
+  
+!   while ((c = getopt_long (argc, argv, "", long_options, (int *) 0)) != EOF)
+      {
+        switch (c)
+  	{
+--- 69,75 ----
+  
+    program_name = argv[0];
+  
+!   while ((c = getopt_long (argc, argv, "?", long_options, (int *) 0)) != EOF)
+      {
+        switch (c)
+  	{
+***************
+*** 76,82 ****
+  	  break;
+  
+  	default:
+! 	  usage (1);
+  	}
+      }
+  
+--- 77,83 ----
+  	  break;
+  
+  	default:
+! 	  usage (0);
+  	}
+      }
+  
+diff -cbBwr orig/src/nice.c new/src/nice.c
+*** orig/src/nice.c	Sat Oct 01 04:41:16 1994
+--- new/src/nice.c	Sat Dec 17 00:19:22 1994
+***************
+*** 18,23 ****
+--- 18,61 ----
+  /* David MacKenzie <djm@gnu.ai.mit.edu> */
+  
+  #include <config.h>
++ 
++ #ifdef OS2
++ 
++ #define NICE
++ 
++ #define INCL_NOPM
++ #define INCL_DOSPROCESS
++ #include <os2.h>
++ #include <errno.h>
++ 
++ #define PRIO_PROCESS 0
++ 
++ int class = PRTYC_NOCHANGE;
++ int adjustment;
++ char *current_class;
++ char *name[] = {"", "idle-time", "regular", "time-critical", "foreground-server"};
++ 
++ int getpriority(int x, int y)
++ {
++   ULONG prio, class;
++   PTIB ptib;
++   PPIB ppib;
++ 
++   DosGetInfoBlocks(&ptib, &ppib);
++   prio = ptib -> tib_ptib2 -> tib2_ulpri;
++ 
++   class = prio >> 8;
++   current_class = name[class];
++   return -(prio & 255);
++ }
++ 
++ int setpriority(int x, int y, int v)
++ {
++   return DosSetPriority(PRTYS_PROCESSTREE, class, -adjustment, 0) ? -1 : 0;
++ }
++ 
++ #endif
++ 
+  #include <stdio.h>
+  
+  #define NDEBUG
+***************
+*** 51,56 ****
+--- 89,100 ----
+  static struct option const longopts[] =
+  {
+    {"adjustment", required_argument, NULL, 'n'},
++ #ifdef OS2
++   {"idle-time", no_argument, NULL, 'i'},
++   {"regular", no_argument, NULL, 'r'},
++   {"time-critical", no_argument, NULL, 't'},
++   {"foreground-server", no_argument, NULL, 'f'},
++ #endif
+    {NULL, 0, NULL, 0}
+  };
+  
+***************
+*** 60,66 ****
+--- 104,112 ----
+       char **argv;
+  {
+    int current_priority;
++ #ifndef OS2
+    int adjustment = 0;
++ #endif
+    int minusflag = 0;
+    int adjustment_given = 0;
+    int long_option_priority = 0;
+***************
+*** 89,95 ****
+--- 135,145 ----
+        else
+  	{
+  	  int optc;
++ #ifdef OS2
++ 	  while ((optc = getopt_long (argc, argv, "+0123456789n:irtf", longopts,
++ #else
+  	  while ((optc = getopt_long (argc, argv, "+0123456789n:", longopts,
++ #endif
+  				      (int *) 0)) != EOF)
+  	    {
+  	      switch (optc)
+***************
+*** 97,102 ****
+--- 147,167 ----
+  		case '?':
+  		  usage (1);
+  
++ #ifdef OS2
++ 		case 'i':
++ 		  class = PRTYC_IDLETIME;
++ 		  break;
++ 		case 'r':
++ 		  class = PRTYC_REGULAR;
++ 		  break;
++ 		case 't':
++ 		  class = PRTYC_TIMECRITICAL;
++ 		  break;
++ 		case 'f':
++ 		  class = PRTYC_FOREGROUNDSERVER;
++ 		  break;
++ #endif
++ 
+  		case 'n':
+  		  if (!isinteger (optarg))
+  		    error (1, 0, "invalid priority `%s'", optarg);
+***************
+*** 142,148 ****
+--- 207,219 ----
+        current_priority = GET_PRIORITY ();
+        if (current_priority == -1 && errno != 0)
+  	error (1, errno, "cannot get priority");
++ #ifdef OS2
++       printf ("\ncurrent class: %s\ncurrent priority: %d\n",
++               current_class, current_priority);
++       usage (0);
++ #else
+        printf ("%d\n", current_priority);
++ #endif
+        exit (0);
+      }
+  
+***************
+*** 190,196 ****
+--- 261,288 ----
+  	     program_name);
+    else
+      {
++       print_version("nice");
+        printf ("Usage: %s [OPTION]... [COMMAND [ARG]...]\n", program_name);
++ #ifdef OS2
++       printf ("\
++ \n\
++   -ADJUST                   increment priority by ADJUST\n\
++   -n, --adjustment=ADJUST   same as -ADJUST\n\
++ \n\
++   -i, --idle-time	    idle-time class\n\
++   -r, --regular		    regular class\n\
++   -t, --time-critical	    time-critical class\n\
++   -f, --foreground-server   foreground-server class\n\
++ \n\
++ Note that this program follows the Unix style which is that\n\
++ negative adjustments increase the priority while positive\n\
++ adjustments decrease the priority. Normally, all OS/2 processes\n\
++ run at the lowest priority in their class already, so only\n\
++ negative values make sense unless priority has been increased\n\
++ previously, to allow a decrease later. Range of ADJUST goes from\n\
++ -31 to 31. With no COMMAND, print the current scheduling priority.\n\
++ ");
++ #else
+        printf ("\
+  \n\
+    -ADJUST                   increment priority by ADJUST first\n\
+***************
+*** 201,206 ****
+--- 293,299 ----
+  With no COMMAND, print the current scheduling priority.  ADJUST is 10\n\
+  by default.  Range goes from -20 (highest priority) to 19 (lowest).\n\
+  ");
++ #endif
+      }
+    exit (status);
+  }
+diff -cbBwr orig/src/pathchk.c new/src/pathchk.c
+*** orig/src/pathchk.c	Fri Oct 21 06:59:44 1994
+--- new/src/pathchk.c	Sat Dec 17 00:13:36 1994
+***************
+*** 151,160 ****
+      usage (0);
+  
+    if (optind == argc)
+!     {
+!       error (0, 0, "too few arguments");
+!       usage (1);
+!     }
+  
+    for (; optind < argc; ++optind)
+      exit_status |= validate_path (argv[optind], check_portability);
+--- 151,157 ----
+      usage (0);
+  
+    if (optind == argc)
+!     usage (0);
+  
+    for (; optind < argc; ++optind)
+      exit_status |= validate_path (argv[optind], check_portability);
+***************
+*** 365,370 ****
+--- 362,368 ----
+  	     program_name);
+    else
+      {
++       print_version("pathchk");
+        printf ("Usage: %s [OPTION]... PATH...\n", program_name);
+        printf ("\
+  \n\
+diff -cbBwr orig/src/printenv.c new/src/printenv.c
+*** orig/src/printenv.c	Sat Oct 01 04:41:18 1994
+--- new/src/printenv.c	Sat Dec 17 00:09:26 1994
+***************
+*** 29,34 ****
+--- 29,35 ----
+  
+  #include <config.h>
+  #include <stdio.h>
++ #include <ctype.h>
+  #include <sys/types.h>
+  #include <getopt.h>
+  
+***************
+*** 64,69 ****
+--- 65,71 ----
+  	     program_name);
+    else
+      {
++       print_version("printenv");
+        printf ("Usage: %s [OPTION]... [VARIABLE]...\n", program_name);
+        printf ("\
+  \n\
+***************
+*** 90,96 ****
+  
+    program_name = argv[0];
+  
+!   while ((c = getopt_long (argc, argv, "", long_options, (int *) 0)) != EOF)
+      {
+        switch (c)
+  	{
+--- 92,98 ----
+  
+    program_name = argv[0];
+  
+!   while ((c = getopt_long (argc, argv, "?", long_options, (int *) 0)) != EOF)
+      {
+        switch (c)
+  	{
+***************
+*** 98,104 ****
+  	  break;
+  
+  	default:
+! 	  usage (1);
+  	}
+      }
+  
+--- 100,106 ----
+  	  break;
+  
+  	default:
+! 	  usage (0);
+  	}
+      }
+  
+***************
+*** 125,132 ****
+--- 127,140 ----
+  	    {
+  	      ep = *env;
+  	      ap = argv[i];
++ #ifdef OS2
++ 	      while (*ep != '\0' && *ap != '\0' && tolower(*ep) == tolower(*ap))
++ 	        {
++ 		  ep++, ap++;
++ #else
+  	      while (*ep != '\0' && *ap != '\0' && *ep++ == *ap++)
+  		{
++ #endif
+  		  if (*ep == '=' && *ap == '\0')
+  		    {
+  		      puts (ep + 1);
+diff -cbBwr orig/src/printf.c new/src/printf.c
+*** orig/src/printf.c	Sat Oct 01 04:41:18 1994
+--- new/src/printf.c	Sat Dec 17 00:09:26 1994
+***************
+*** 90,95 ****
+--- 90,96 ----
+  	     program_name);
+    else
+      {
++       print_version("printf");
+        printf ("\
+  Usage: %s FORMAT [ARGUMENT]...\n\
+    or:  %s OPTION\n\
+***************
+*** 139,148 ****
+    parse_long_options (argc, argv, "printf", version_string, usage);
+  
+    if (argc == 1)
+!     {
+!       fprintf (stderr, "Usage: %s format [argument...]\n", program_name);
+!       exit (1);
+!     }
+  
+    format = argv[1];
+    argc -= 2;
+--- 140,146 ----
+    parse_long_options (argc, argv, "printf", version_string, usage);
+  
+    if (argc == 1)
+!     usage (0);
+  
+    format = argv[1];
+    argc -= 2;
+***************
+*** 301,306 ****
+--- 299,305 ----
+        if (esc_length == 0)
+  	error (1, 0, "missing hexadecimal number in escape");
+        putchar (esc_value);
++       --p;
+      }
+    else if (*p == '0')
+      {
+diff -cbBwr orig/src/pwd.c new/src/pwd.c
+*** orig/src/pwd.c	Sat Oct 01 04:41:20 1994
+--- new/src/pwd.c	Sat Dec 17 00:09:26 1994
+***************
+*** 40,45 ****
+--- 40,46 ----
+  	     program_name);
+    else
+      {
++       print_version("pwd");
+        printf ("Usage: %s [OPTION]\n", program_name);
+        printf ("\
+  \n\
+diff -cbBwr orig/src/sleep.c new/src/sleep.c
+*** orig/src/sleep.c	Fri Oct 21 06:59:44 1994
+--- new/src/sleep.c	Sat Dec 17 00:14:00 1994
+***************
+*** 52,57 ****
+--- 52,58 ----
+  	     program_name);
+    else
+      {
++       print_version("sleep");
+        printf ("Usage: %s [OPTION]... NUMBER[SUFFIX]\n", program_name);
+        printf ("\
+  \n\
+***************
+*** 97,106 ****
+      usage (0);
+  
+    if (argc == 1)
+!     {
+!       error (0, 0, "too few arguments");
+!       usage (1);
+!     }
+  
+    for (i = 1; i < argc; i++)
+      seconds += argdecode (argv[i]);
+--- 98,104 ----
+      usage (0);
+  
+    if (argc == 1)
+!     usage (0);
+  
+    for (i = 1; i < argc; i++)
+      seconds += argdecode (argv[i]);
+diff -cbBwr orig/src/system.h new/src/system.h
+*** orig/src/system.h	Sat Oct 08 02:24:44 1994
+--- new/src/system.h	Sat Dec 17 01:41:20 1994
+***************
+*** 15,22 ****
+     along with this program; if not, write to the Free Software
+     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+  
+! /* Include sys/types.h before this file.  */
+! 
+  #include <sys/stat.h>
+  
+  #ifdef STAT_MACROS_BROKEN
+--- 15,21 ----
+     along with this program; if not, write to the Free Software
+     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+  
+! #include <sys/types.h>
+  #include <sys/stat.h>
+  
+  #ifdef STAT_MACROS_BROKEN
+***************
+*** 68,73 ****
+--- 67,112 ----
+  #include <unistd.h>
+  #endif
+  
++ #ifdef OS2
++ 
++ #include <process.h>
++ #include <stdlib.h>
++ #include <pwd.h>
++ 
++ #ifdef NICE
++ #define execvp(n, a)        {int rc = spawnvp(P_WAIT, n, a); if (rc != -1) exit(rc);}
++ #else
++ #define execvp(n, a)        spawnvp(P_OVERLAY, n, a)
++ #endif
++ 
++ #define PATH_MAX            260
++ #define NAME_MAX            256
++ 
++ #define getgid()            0
++ #define getuid()            0
++ #define getegid()           0
++ #define geteuid()           0
++ #define getpwnam(x)         (dummy_pw.pw_name = getlogin(), &dummy_pw)
++ #define getpwuid(x)         (dummy_pw.pw_name = getlogin(), &dummy_pw)
++ #define getgrgid(x)         (&dummy_gr)
++ #define getgroups(n,p)      (*p = 0, 1)
++ #define getugroups(n,p,u)   (*p = 0, 1)
++ #define getlogin()          (getenv("LOGNAME") ? getenv("LOGNAME") : "root")
++ 
++ struct group {
++   char *gr_name;
++   gid_t gr_uid;
++ };
++ 
++ static struct group dummy_gr = {"root", 0};
++ static struct passwd dummy_pw = {"root", 0, 0};
++ 
++ #define ttyname(arg)        (isatty(0) ? "con" : NULL)
++ 
++ #define main os2main
++ 
++ #else /* not OS2 */
++ 
+  #ifndef _POSIX_VERSION
+  char *getlogin ();
+  char *ttyname ();
+***************
+*** 75,80 ****
+--- 114,121 ----
+  uid_t geteuid ();
+  #endif /* _POSIX_VERSION */
+  
++ #endif /* OS2 */
++ 
+  #if defined(STDC_HEADERS) || defined(HAVE_STRING_H)
+  #include <string.h>
+  #ifndef index
+***************
+*** 115,120 ****
+--- 156,165 ----
+  #endif
+  
+  #include <ctype.h>
++ 
++ #include "version.h"
++ #define print_version(x) \
++   fprintf(stderr, "\nGNU %s, %s\n\n", x, version_string + 4)
+  
+  #if defined (STDC_HEADERS) || (!defined (isascii) && !defined (HAVE_ISASCII))
+  #define ISASCII(c) 1
+diff -cbBwr orig/src/tee.c new/src/tee.c
+*** orig/src/tee.c	Sat Oct 01 04:41:24 1994
+--- new/src/tee.c	Sat Dec 17 00:09:26 1994
+***************
+*** 65,70 ****
+--- 65,71 ----
+  	     program_name);
+    else
+      {
++       print_version("tee");
+        printf ("Usage: %s [OPTION]... [FILE]...\n", program_name);
+        printf ("\
+  \n\
+***************
+*** 119,124 ****
+--- 120,128 ----
+    if (show_help)
+      usage (0);
+  
++   if (isatty(0))
++     usage(0);
++ 
+    if (ignore_interrupts)
+      {
+  #ifdef _POSIX_SOURCE
+***************
+*** 156,162 ****
+  
+    descriptors = (int *) xmalloc ((nfiles + 1) * sizeof (int));
+  
+!   mode = O_WRONLY | O_CREAT;
+    if (append)
+      mode |= O_APPEND;
+    else
+--- 160,171 ----
+  
+    descriptors = (int *) xmalloc ((nfiles + 1) * sizeof (int));
+  
+! #ifdef OS2
+!   setmode(0, O_BINARY);
+!   setmode(1, O_BINARY);
+! #endif
+! 
+!   mode = O_WRONLY | O_CREAT | O_BINARY;
+    if (append)
+      mode |= O_APPEND;
+    else
+diff -cbBwr orig/src/test.c new/src/test.c
+*** orig/src/test.c	Sat Oct 01 05:27:38 1994
+--- new/src/test.c	Sat Dec 17 00:16:04 1994
+***************
+*** 57,63 ****
+  #endif /* !_POSIX_VERSION */
+  
+  #include <errno.h>
+! #ifndef errno
+  extern int errno;
+  #endif
+  
+--- 57,63 ----
+  #endif /* !_POSIX_VERSION */
+  
+  #include <errno.h>
+! #if !defined (errno) && !defined(OS2)
+  extern int errno;
+  #endif
+  
+***************
+*** 69,76 ****
+--- 69,78 ----
+  #  define member(c, s) ((c) ? (index ((s), (c)) ? 1 : 0) : 0)
+  #endif /* !member */
+  
++ #ifndef OS2
+  extern gid_t getgid (), getegid ();
+  extern uid_t geteuid ();
++ #endif
+  
+  #if !defined (R_OK)
+  #define R_OK 4
+***************
+*** 175,180 ****
+--- 175,181 ----
+    if (euid == -1)
+      euid = geteuid ();
+  
++ #ifndef OS2
+    if (euid == 0)
+      {
+        /* Root can read or write any file. */
+***************
+*** 186,191 ****
+--- 187,193 ----
+        if (st.st_mode & S_IXUGO)
+  	return (0);
+      }
++ #endif
+  
+    if (st.st_uid == euid)        /* owner */
+      mode <<= 6;
+***************
+*** 734,740 ****
+--- 736,746 ----
+        if (test_stat (argv[pos - 1], &stat_buf) < 0)
+  	return (FALSE);
+  
++ #ifdef OS2
++         return 0;
++ #else
+        return (TRUE == (S_ISBLK (stat_buf.st_mode)));
++ #endif
+  
+      case 'p':			/* File is a named pipe? */
+        unary_advance ();
+***************
+*** 983,988 ****
+--- 989,995 ----
+  	     program_name);
+    else
+      {
++       print_version("test");
+        printf ("\
+  Usage: %s EXPRESSION\n\
+    or:  [ EXPRESSION ]\n\
+***************
+*** 1101,1107 ****
+    pos = 1;
+  
+    if (pos >= argc)
+!     test_exit (SHELL_BOOLEAN (FALSE));
+  
+    parse_long_options (argc, argv, COMMAND_NAME, version_string, usage);
+    value = posixtest ();
+--- 1108,1114 ----
+    pos = 1;
+  
+    if (pos >= argc)
+!     usage(0);
+  
+    parse_long_options (argc, argv, COMMAND_NAME, version_string, usage);
+    value = posixtest ();
+diff -cbBwr orig/src/tty.c new/src/tty.c
+*** orig/src/tty.c	Sat Oct 01 04:41:26 1994
+--- new/src/tty.c	Sat Dec 17 00:09:28 1994
+***************
+*** 66,72 ****
+    program_name = argv[0];
+    silent = 0;
+  
+!   while ((optc = getopt_long (argc, argv, "s", longopts, (int *) 0)) != EOF)
+      {
+        switch (optc)
+  	{
+--- 66,72 ----
+    program_name = argv[0];
+    silent = 0;
+  
+!   while ((optc = getopt_long (argc, argv, "s?", longopts, (int *) 0)) != EOF)
+      {
+        switch (optc)
+  	{
+***************
+*** 78,84 ****
+  	  break;
+  
+  	default:
+! 	  usage (2);
+  	}
+      }
+  
+--- 78,84 ----
+  	  break;
+  
+  	default:
+! 	  usage (0);
+  	}
+      }
+  
+***************
+*** 118,123 ****
+--- 118,124 ----
+  	     program_name);
+    else
+      {
++       print_version("tty");
+        printf ("Usage: %s [OPTION]...\n", program_name);
+        printf ("\
+  \n\
+diff -cbBwr orig/src/uname.c new/src/uname.c
+*** orig/src/uname.c	Sat Oct 01 04:41:28 1994
+--- new/src/uname.c	Sat Dec 17 00:09:28 1994
+***************
+*** 31,37 ****
+--- 31,41 ----
+  #include <config.h>
+  #include <stdio.h>
+  #include <sys/types.h>
++ #ifdef OS2
++ #include <utsname.h>
++ #else
+  #include <sys/utsname.h>
++ #endif
+  #include <getopt.h>
+  
+  #include "system.h"
+***************
+*** 93,99 ****
+    program_name = argv[0];
+    toprint = 0;
+  
+!   while ((c = getopt_long (argc, argv, "snrvma", long_options, (int *) 0))
+  	 != EOF)
+      {
+        switch (c)
+--- 97,103 ----
+    program_name = argv[0];
+    toprint = 0;
+  
+!   while ((c = getopt_long (argc, argv, "snrvma?", long_options, (int *) 0))
+  	 != EOF)
+      {
+        switch (c)
+***************
+*** 127,133 ****
+  	  break;
+  
+  	default:
+! 	  usage (1);
+  	}
+      }
+  
+--- 131,137 ----
+  	  break;
+  
+  	default:
+! 	  usage (0);
+  	}
+      }
+  
+***************
+*** 183,188 ****
+--- 187,193 ----
+  	     program_name);
+    else
+      {
++       print_version("uname");
+        printf ("Usage: %s [OPTION]...\n", program_name);
+        printf ("\
+  \n\
+diff -cbBwr orig/src/version.c new/src/version.c
+*** orig/src/version.c	Sat Nov 05 15:22:38 1994
+--- new/src/version.c	Sat Dec 17 00:09:28 1994
+***************
+*** 1,3 ****
+--- 1,18 ----
+  #include <config.h>
+  #include "version.h"
+  const char *version_string = "GNU sh-utils 1.12";
++ 
++ #ifdef __EMX__
++ 
++ #undef main
++ 
++ int main(int argc, char **argv)
++ {
++   _wildcard(&argc, &argv);
++   _response(&argc, &argv);
++   set_program_name(argv[0]);
++   tzset();
++   return os2main(argc, argv);
++ }
++ 
++ #endif
+diff -cbBwr orig/src/whoami.c new/src/whoami.c
+*** orig/src/whoami.c	Sat Oct 01 04:41:30 1994
+--- new/src/whoami.c	Sat Dec 17 00:09:28 1994
+***************
+*** 52,57 ****
+--- 52,58 ----
+  	     program_name);
+    else
+      {
++       print_version("whoami");
+        printf ("Usage: %s [OPTION]...\n", program_name);
+        printf ("\
+  \n\
+***************
+*** 75,81 ****
+  
+    program_name = argv[0];
+  
+!   while ((c = getopt_long (argc, argv, "", long_options, (int *) 0)) != EOF)
+      {
+        switch (c)
+  	{
+--- 76,82 ----
+  
+    program_name = argv[0];
+  
+!   while ((c = getopt_long (argc, argv, "?", long_options, (int *) 0)) != EOF)
+      {
+        switch (c)
+  	{
+***************
+*** 83,89 ****
+  	  break;
+  
+  	default:
+! 	  usage (1);
+  	}
+      }
+  
+--- 84,90 ----
+  	  break;
+  
+  	default:
+! 	  usage (0);
+  	}
+      }
+  
+diff -cbBwr orig/src/yes.c new/src/yes.c
+*** orig/src/yes.c	Sat Oct 01 04:41:30 1994
+--- new/src/yes.c	Sat Dec 17 00:09:28 1994
+***************
+*** 21,26 ****
+--- 21,28 ----
+  #include <stdio.h>
+  #include <getopt.h>
+  
++ #include "system.h"
++ #include "version.h"
+  #include "long-options.h"
+  #include "version.h"
+  
+***************
+*** 36,41 ****
+--- 38,44 ----
+  	     program_name);
+    else
+      {
++       print_version("yes");
+        printf ("Usage: %s [OPTION]... [STRING]...\n", program_name);
+        printf ("\
+  \n\
